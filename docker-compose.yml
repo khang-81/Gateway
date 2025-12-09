@@ -6,9 +6,9 @@ services:
     container_name: mlflow-gateway
     ports:
       - "5000:5000"
-    volumes:
-      # Don't mount config.yaml as read-only - entrypoint will create it dynamically
-      # - ./config.yaml:/opt/mlflow/config.yaml:ro
+    # Don't mount config.yaml - entrypoint will create it dynamically with API key
+    # volumes:
+    #   - ./config.yaml:/opt/mlflow/config.yaml:ro
     env_file:
       - .env
     environment:
