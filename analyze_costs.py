@@ -176,14 +176,28 @@ def analyze_response_file(file_path: str, model: str = "gpt-3.5-turbo"):
             return
         
         # Calculate and display
+        total_prompt = sum(u.get("prompt_tokens", 0) for u in usages)
+        total_completion = sum(u.get("completion_tokens", 0) for u in usages)
+        total_tokens = total_prompt + total_completion
         total_cost = sum(calculate_cost(u, model)["total_cost"] for u in usages)
+        
+        print("=" * 70)
+        print("Cost Analysis from Response File")
+        print("=" * 70)
         print(f"Total Requests: {len(usages)}")
+        print(f"Total Prompt Tokens: {total_prompt:,}")
+        print(f"Total Completion Tokens: {total_completion:,}")
+        print(f"Total Tokens: {total_tokens:,}")
         print(f"Total Cost: ${total_cost:.6f}")
+        if len(usages) > 0:
+            print(f"Average Cost per Request: ${total_cost / len(usages):.6f}")
         
     except FileNotFoundError:
         print(f"✗ File not found: {file_path}")
-    except json.JSONDecodeError:
+        print("  Make sure the file exists and path is correct")
+    except json.JSONDecodeError as e:
         print(f"✗ Invalid JSON file: {file_path}")
+        print(f"  Error: {e}")
     except Exception as e:
         print(f"✗ Error: {e}")
 

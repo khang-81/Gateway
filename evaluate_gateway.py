@@ -210,7 +210,14 @@ class GatewayEvaluator:
         print(f"Successful: {successful_requests}")
         print(f"Failed: {len(test_cases) - successful_requests}")
         print(f"Total Cost: ${total_cost:.6f}")
-        print(f"Average Cost per Request: ${total_cost / successful_requests:.6f if successful_requests > 0 else 0}")
+        if successful_requests > 0:
+            print(f"Average Cost per Request: ${total_cost / successful_requests:.6f}")
+        else:
+            print("Average Cost per Request: N/A (no successful requests)")
+            print("\n⚠ All requests failed. Check:")
+            print("  1. API key is valid (not placeholder)")
+            print("  2. Gateway is running correctly")
+            print("  3. Network connectivity")
         
         return {
             "total_requests": len(test_cases),
@@ -235,17 +242,36 @@ def main():
     # Load test cases from file if provided
     test_cases = None
     if args.test_file:
-        with open(args.test_file, 'r') as f:
-            test_cases = json.load(f)
+        try:
+            with open(args.test_file, 'r') as f:
+                test_cases = json.load(f)
+        except FileNotFoundError:
+            print(f"✗ Error: Test file not found: {args.test_file}")
+            print("  Create a JSON file with test cases, example:")
+            print('  [{"name": "Test", "messages": [{"role": "user", "content": "Hello"}]}]')
+            sys.exit(1)
+        except json.JSONDecodeError as e:
+            print(f"✗ Error: Invalid JSON in test file: {e}")
+            sys.exit(1)
     
     # Run evaluation
-    summary = evaluator.evaluate(test_cases)
-    
-    # Save results if output file specified
-    if args.output:
-        with open(args.output, 'w') as f:
-            json.dump(summary, f, indent=2)
-        print(f"\n✓ Results saved to {args.output}")
+    try:
+        summary = evaluator.evaluate(test_cases)
+        
+        # Save results if output file specified
+        if args.output:
+            try:
+                with open(args.output, 'w') as f:
+                    json.dump(summary, f, indent=2)
+                print(f"\n✓ Results saved to {args.output}")
+            except Exception as e:
+                print(f"✗ Error saving results: {e}")
+    except KeyboardInterrupt:
+        print("\n\n⚠ Evaluation interrupted by user")
+        sys.exit(1)
+    except Exception as e:
+        print(f"\n✗ Evaluation error: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
