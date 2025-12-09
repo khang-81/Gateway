@@ -234,27 +234,36 @@ docker compose up -d
 
 ## Troubleshooting
 
-### API Key Invalid (401 Error)
+### API Key Invalid (401 Error) hoặc Container Restarting
 
-**Triệu chứng:** `Incorrect API key provided: your_ope************here`
+**Triệu chứng:** 
+- `Incorrect API key provided: your_ope************here`
+- Container status: `Restarting`
+- Logs: `ERROR: OPENAI_API_KEY environment variable is not set`
+- Logs: `OPENAI_API_KEY=` (empty)
 
 **Giải pháp:**
 ```bash
-# Kiểm tra API key
+# Cách 1: Sử dụng script tự động (Khuyến nghị)
+chmod +x fix_env_and_restart.sh
+./fix_env_and_restart.sh
+
+# Cách 2: Fix thủ công
+# 1. Kiểm tra API key
 ./check_api_key.sh
 
-# Hoặc kiểm tra thủ công
-cat .env | grep OPENAI_API_KEY
+# 2. Đảm bảo .env file đúng format
+cat .env
+# Phải có: OPENAI_API_KEY=sk-your-actual-key-here (không có quotes, không có spaces)
 
-# Nếu vẫn là placeholder, cập nhật:
-nano .env
-# Thay: OPENAI_API_KEY=sk-your-actual-key-here
-
-# Restart container
+# 3. Export và restart
 export OPENAI_API_KEY=$(grep "^OPENAI_API_KEY=" .env | cut -d'=' -f2- | xargs)
 docker compose down
-docker compose build --no-cache
-OPENAI_API_KEY="$OPENAI_API_KEY" docker compose up -d
+OPENAI_API_KEY="$OPENAI_API_KEY" docker compose up -d --build
+
+# 4. Kiểm tra API key trong container
+docker exec mlflow-gateway env | grep OPENAI
+# Phải hiển thị: OPENAI_API_KEY=sk-... (không được rỗng)
 ```
 
 ### Scaling Error: container_name must be unique

@@ -52,9 +52,12 @@ echo ""
 echo "Restarting container with new API key..."
 export OPENAI_API_KEY
 
+# Stop container
 docker compose down
-docker compose build --no-cache
-OPENAI_API_KEY="$OPENAI_API_KEY" docker compose up -d
+
+# Rebuild and start with explicit environment variable
+echo "Rebuilding container..."
+OPENAI_API_KEY="$API_KEY" docker compose up -d --build
 
 echo ""
 echo "Waiting for container to start (60 seconds)..."
