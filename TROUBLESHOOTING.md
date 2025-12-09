@@ -1,6 +1,50 @@
 # 🔧 Troubleshooting Guide - MLflow Gateway
 
-## Tình Trạng Deploy
+## 🚨 Lỗi: Environment Variable Not Set
+
+### Triệu chứng
+```
+Error: Invalid value for '--config-path': Invalid gateway configuration: Environment variable '{OPENAI_API_KEY}' is not set
+Container status: Restarting (2)
+```
+
+### Giải pháp nhanh
+
+**Bước 1: Kiểm tra file .env**
+```bash
+cat .env
+# Phải chỉ có 1 dòng: OPENAI_API_KEY=sk-...
+```
+
+**Bước 2: Export biến môi trường và restart**
+```bash
+# Export biến từ .env
+export OPENAI_API_KEY=$(grep "^OPENAI_API_KEY=" .env | cut -d'=' -f2)
+
+# Dừng container
+docker compose down
+
+# Rebuild và start với biến môi trường
+docker compose build --no-cache
+OPENAI_API_KEY="$OPENAI_API_KEY" docker compose up -d
+
+# Đợi 60 giây
+sleep 60
+
+# Kiểm tra
+docker ps --filter "name=mlflow-gateway"
+docker compose logs --tail=30 mlflow-gateway
+```
+
+**Bước 3: Hoặc sử dụng script tự động**
+```bash
+chmod +x fix_and_restart.sh
+./fix_and_restart.sh
+```
+
+---
+
+## Tình Trạng Deploy Khác
 
 ### ✅ Container đang chạy nhưng Health Check Failed
 
