@@ -1,0 +1,64 @@
+version: '3.8'
+
+# Production Docker Compose Configuration
+# Migration notes:
+# 1. Remove .env file usage - use Docker secrets or external secret management
+# 2. Set appropriate resource limits (memory, CPU)
+# 3. Configure logging driver for centralized logging
+# 4. Add healthcheck with proper intervals
+# 5. Consider using Docker Swarm or Kubernetes for orchestration
+# 6. Enable TLS termination at reverse proxy (nginx/traefik)
+# 7. Set up monitoring (Prometheus metrics endpoint)
+
+services:
+  mlflow-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mlflow-gateway-prod
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./config.yaml:/opt/mlflow/config.yaml:ro
+    # Production: Use Docker secrets instead of .env
+    # secrets:
+    #   - openai_api_key
+    # environment:
+    #   OPENAI_API_KEY_FILE: /run/secrets/openai_api_key
+    #   # Or use external secret management (Vault, AWS Secrets Manager, etc.)
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+        labels: "production,mlflow-gateway"
+    # For Docker Swarm, uncomment:
+    # networks:
+    #   - mlflow-network
+    # For Kubernetes, use equivalent resource limits and secrets
+
+# Uncomment for Docker Swarm secrets:
+# secrets:
+#   openai_api_key:
+#     external: true
+
+# Uncomment for custom network:
+# networks:
+#   mlflow-network:
+#     driver: overlay
+

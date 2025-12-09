@@ -1,0 +1,30 @@
+endpoints:
+  - name: chat
+    endpoint_type: llm/v1/chat
+    model:
+      provider: openai
+      name: gpt-3.5-turbo
+      config:
+        openai_api_key: ${OPENAI_API_KEY}
+        temperature: 0.7
+
+# Mở rộng cho Anthropic:
+#   - name: chat-anthropic
+#     endpoint_type: llm/v1/chat
+#     model:
+#       provider: anthropic
+#       name: claude-3-5-sonnet-20241022
+#       config:
+#         anthropic_api_key: ${ANTHROPIC_API_KEY}
+#
+# Mở rộng cho Azure OpenAI:
+#   - name: chat-azure
+#     endpoint_type: llm/v1/chat
+#     model:
+#       provider: azure_openai
+#       name: gpt-35-turbo
+#       config:
+#         azure_openai_api_key: ${AZURE_OPENAI_API_KEY}
+#         azure_openai_endpoint: ${AZURE_OPENAI_ENDPOINT}
+#         azure_openai_deployment_name: ${AZURE_OPENAI_DEPLOYMENT_NAME}
+
