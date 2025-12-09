@@ -4,6 +4,7 @@ Môi trường dev sẵn sàng deploy cho MLflow AI Gateway trên Windows (Docke
 
 ## 🚀 Quick Deploy Options
 
+- **📖 Hướng dẫn đầy đủ**: [DEPLOY_GUIDE.md](DEPLOY_GUIDE.md) - Step-by-step guide chi tiết
 - **Teleport Web UI** (Khuyến nghị): Deploy trực tiếp qua Web Terminal - không cần cài đặt client. Xem [DEPLOY_WEB_UI.md](DEPLOY_WEB_UI.md)
 - **Teleport CLI**: Deploy qua command line với `tsh`. Xem [DEPLOY_STEPS.md](DEPLOY_STEPS.md)
 - **Local Development**: Chạy trên máy local với Docker Desktop. Xem phần Quick Start bên dưới
