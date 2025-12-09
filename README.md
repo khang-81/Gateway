@@ -1,267 +1,285 @@
 # MLflow AI Gateway - Docker Deployment
 
-Môi trường dev sẵn sàng deploy cho MLflow AI Gateway trên Windows (Docker Desktop + WSL2) và Linux server.
+Môi trường sẵn sàng deploy cho MLflow AI Gateway trên Windows (Docker Desktop + WSL2) và Linux server qua Teleport.
 
-## 🚀 Quick Deploy Options
+## Tổng Quan
 
-- **🚀 Quick Start**: [QUICK_START.md](QUICK_START.md) - Hướng dẫn deploy nhanh nhất
-- **📖 Hướng dẫn đầy đủ**: [DEPLOY_GUIDE.md](DEPLOY_GUIDE.md) - Step-by-step guide chi tiết
-- **Teleport Web UI** (Khuyến nghị): Deploy trực tiếp qua Web Terminal - không cần cài đặt client. Xem [DEPLOY_WEB_UI.md](DEPLOY_WEB_UI.md)
-- **Teleport CLI**: Deploy qua command line với `tsh`. Xem [DEPLOY_STEPS.md](DEPLOY_STEPS.md)
-- **Local Development**: Chạy trên máy local với Docker Desktop. Xem phần Quick Start bên dưới
+MLflow AI Gateway cung cấp unified interface để quản lý và deploy multiple LLM providers (OpenAI, Anthropic, Azure OpenAI) thông qua một endpoint duy nhất.
 
-## Prerequisites (Windows)
+**Thông tin Server:**
+- Server: `adt-ml-dify-49-202` (10.3.49.202)
+- Port: 5000
+- Health Endpoint: `http://10.3.49.202:5000/health`
+- API Endpoint: `http://10.3.49.202:5000/gateway/chat/invocations`
 
-- Docker Desktop với WSL2 backend
-- PowerShell 5.1+ hoặc PowerShell Core
-- WSL2 đã cài đặt và kích hoạt
+## Deploy Qua Teleport Web UI
 
-## Quick Start (Windows)
+### Bước 1: Truy cập Teleport Web UI
 
-### 1. Chuẩn bị môi trường
+1. Đăng nhập vào Teleport Web UI
+2. Tìm server `adt-ml-dify-49-202` trong phần Resources
+3. Click "Connect" và chọn "Web Terminal"
 
-```powershell
-# Copy file env.template thành .env và điền API key
-Copy-Item env.template .env
-# Hoặc nếu có .env.example: Copy-Item .env.example .env
-# Mở .env và thay your_key_here bằng OpenAI API key thực tế
+### Bước 2: Kiểm tra Prerequisites
+
+```bash
+docker --version
+docker compose version
+git --version
 ```
 
-### 2. Build và chạy
+Nếu thiếu, cài đặt:
 
-```powershell
-# Build image
-docker-compose build
-
-# Chạy container (detached mode)
-docker-compose up -d
-
-# Kiểm tra container status
-docker ps --filter "name=mlflow-gateway"
-
-# Xem logs
-docker-compose logs -f mlflow-gateway
+```bash
+sudo apt-get update
+sudo apt-get install -y docker.io docker-compose git
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo usermod -aG docker $USER
 ```
 
-### 3. Test endpoint
-
-```powershell
-# Health check script
-.\healthcheck.ps1
-
-# Hoặc test thủ công với curl
-$body = @{
-    messages = @(
-        @{
-            role = "user"
-            content = "Hello, how are you?"
-        }
-    )
-} | ConvertTo-Json -Depth 10
-
-Invoke-RestMethod -Uri "http://localhost:5000/gateway/chat/invocations" -Method Post -Body $body -ContentType "application/json"
-```
-
-## Deploy lên Linux Server
-
-### Phương Pháp 1: Deploy qua Teleport Web UI (Khuyến nghị)
-
-Deploy trực tiếp qua Web Terminal trong Teleport Web UI - không cần cài đặt Teleport client.
-
-**Bước 1**: Truy cập Teleport Web UI và click "Connect" vào server `adt-ml-dify-49-202`
-
-**Bước 2**: Mở Web Terminal
-
-**Bước 3**: Clone repository và chạy script:
+### Bước 3: Clone Repository
 
 ```bash
 cd /opt
 sudo mkdir -p mlflow-gateway && sudo chown $USER:$USER mlflow-gateway
 cd mlflow-gateway
 git clone <your-repo-url> .
+```
+
+### Bước 4: Deploy
+
+**Cách 1: Script Interactive (Khuyến nghị)**
+
+```bash
 chmod +x setup_and_deploy.sh
 ./setup_and_deploy.sh
 ```
 
-Script sẽ hướng dẫn bạn qua toàn bộ quá trình setup và deploy.
+**Cách 2: Script Đơn Giản**
 
-**Xem hướng dẫn chi tiết**: [DEPLOY_WEB_UI.md](DEPLOY_WEB_UI.md)
+```bash
+cp env.template .env
+nano .env  # Thêm: OPENAI_API_KEY=sk-your-actual-key-here
+chmod +x deploy_web.sh
+./deploy_web.sh
+```
 
-### Phương Pháp 2: Deploy qua Teleport CLI
+### Bước 5: Kiểm tra
 
-#### Yêu cầu
-- Teleport client (tsh) đã cài đặt và đăng nhập
-- Xem hướng dẫn: [TELEPORT_SETUP.md](TELEPORT_SETUP.md)
+```bash
+docker ps --filter "name=mlflow-gateway"
+curl http://localhost:5000/health
+docker compose logs -f mlflow-gateway
+```
 
-#### Deploy tự động
+### Bước 6: Test API
+
+```bash
+curl -X POST http://localhost:5000/gateway/chat/invocations \
+  -H "Content-Type: application/json" \
+  -d '{"messages":[{"role":"user","content":"Hello"}]}'
+```
+
+## Deploy Qua Teleport CLI
+
+### Cài đặt Teleport Client
+
+**Windows:**
+```powershell
+choco install teleport
+```
+
+**Linux/macOS:**
+```bash
+curl https://goteleport.com/static/install.sh | bash -s 13.4.15
+```
+
+### Đăng nhập và Deploy
+
+```bash
+tsh login --proxy=<teleport-proxy-address>
+```
 
 **Windows PowerShell:**
 ```powershell
 .\deploy_to_server.ps1
 ```
 
-**Linux/macOS Bash:**
+**Linux/macOS:**
 ```bash
 chmod +x teleport_deploy.sh
 ./teleport_deploy.sh [username]
 ```
 
-#### Deploy thủ công
+## Local Development (Windows)
 
-1. Copy toàn bộ thư mục `mlflow-gateway/` lên server qua Teleport
-2. Tạo file `.env` từ `env.template` và điền API key
-3. SSH vào server qua Teleport và chạy script deploy:
+### Prerequisites
+
+- Docker Desktop với WSL2 backend
+- PowerShell 5.1+ hoặc PowerShell Core
+
+### Quick Start
+
+```powershell
+# Tạo file .env
+Copy-Item env.template .env
+notepad .env  # Thêm API key
+
+# Build và chạy
+docker-compose build
+docker-compose up -d
+
+# Kiểm tra
+docker ps --filter "name=mlflow-gateway"
+.\healthcheck.ps1
+```
+
+## Quản Lý Service
 
 ```bash
-tsh ssh user@10.3.49.202
-cd /opt/mlflow-gateway
-chmod +x deploy.sh healthcheck.sh
-./deploy.sh
+# Xem logs
+docker compose logs -f mlflow-gateway
+
+# Dừng service
+docker compose down
+
+# Khởi động lại
+docker compose restart
+
+# Update và redeploy
+git pull
+docker compose down
+docker compose build
+docker compose up -d
 ```
 
-4. Kiểm tra health:
+## Troubleshooting
+
+### Lỗi: Environment variable not set
 
 ```bash
-./healthcheck.sh
+# Kiểm tra file .env
+cat .env
+
+# Export biến và restart
+export OPENAI_API_KEY=$(grep "^OPENAI_API_KEY=" .env | cut -d'=' -f2)
+docker compose down
+docker compose build --no-cache
+OPENAI_API_KEY="$OPENAI_API_KEY" docker compose up -d
+sleep 60
+docker ps --filter "name=mlflow-gateway"
 ```
 
-Xem chi tiết: [DEPLOY_STEPS.md](DEPLOY_STEPS.md)
+### Lỗi: Permission denied
 
-## Production Hardening
-
-### 1. TLS/SSL với Nginx và Let's Encrypt
-
-- Cài đặt Nginx reverse proxy trước MLflow Gateway
-- Sử dụng Certbot để lấy Let's Encrypt certificate
-- Cấu hình Nginx với SSL termination
-- Redirect HTTP → HTTPS
-
-**Ví dụ nginx.conf:**
-```nginx
-server {
-    listen 443 ssl http2;
-    server_name your-domain.com;
-    
-    ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
-    
-    location / {
-        proxy_pass http://mlflow-gateway:5000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-}
+```bash
+sudo usermod -aG docker $USER
+newgrp docker
 ```
 
-### 2. Secret Management
+### Lỗi: Port 5000 already in use
 
-**Option A: Docker Secrets (Docker Swarm)**
-```yaml
-secrets:
-  openai_api_key:
-    external: true
-
-services:
-  mlflow-gateway:
-    secrets:
-      - openai_api_key
-    environment:
-      OPENAI_API_KEY_FILE: /run/secrets/openai_api_key
+```bash
+sudo lsof -i :5000
+docker compose down
 ```
 
-**Option B: HashiCorp Vault**
-- Mount Vault agent vào container
-- Inject secrets qua Vault Agent Sidecar
-- Rotate keys định kỳ
+### Lỗi: API key invalid hoặc quota exceeded
 
-**Option C: AWS Secrets Manager / Azure Key Vault**
-- Sử dụng SDK để fetch secrets tại runtime
-- Cache secrets trong memory (không ghi vào disk)
-
-### 3. Logging & Audit
-
-- **Centralized Logging**: Gửi logs tới ELK stack, Loki, hoặc CloudWatch
-- **Log Retention**: Giữ logs tối thiểu 30-90 ngày
-- **Audit Trail**: Log tất cả API requests/responses (PII masking)
-- **Monitoring**: Prometheus + Grafana cho metrics
-
-**Ví dụ docker-compose logging:**
-```yaml
-services:
-  mlflow-gateway:
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+```bash
+# Test API key trực tiếp
+curl https://api.openai.com/v1/models \
+  -H "Authorization: Bearer $(grep "^OPENAI_API_KEY=" .env | cut -d'=' -f2)"
 ```
 
-## Cấu trúc Project
+Kiểm tra billing tại: https://platform.openai.com/account/billing
+
+### Health check fails
+
+```bash
+sleep 60
+curl http://localhost:5000/health
+docker compose logs mlflow-gateway | tail -50
+```
+
+## Cấu Trúc Project
 
 ```
 mlflow-gateway/
-├── config.yaml              # MLflow Gateway configuration (chuẩn MLflow: endpoints, endpoint_type)
+├── config.yaml              # MLflow Gateway config template
 ├── Dockerfile               # Container image definition
 ├── docker-compose.yml       # Docker Compose configuration
-├── docker-compose.prod.yml  # Production Docker Compose configuration
+├── docker-compose.prod.yml  # Production configuration
 ├── env.template             # Environment variables template
-├── .env                     # Actual environment variables (gitignored, tạo từ env.template)
-├── deploy.sh                # Linux deploy script (chạy trên server)
-├── deploy_web.sh            # Simple deploy script for Web Terminal
-├── setup_and_deploy.sh      # Interactive setup and deploy script for Web Terminal
-├── deploy_to_server.ps1     # PowerShell deploy script (Teleport CLI)
-├── teleport_deploy.sh       # Bash deploy script (Teleport CLI)
+├── .env                     # Actual environment variables (gitignored)
+├── entrypoint.sh            # Container entrypoint script
+├── deploy.sh                # Linux deploy script
+├── deploy_web.sh            # Simple deploy script
+├── setup_and_deploy.sh      # Interactive setup script
+├── deploy_to_server.ps1     # PowerShell deploy script
+├── teleport_deploy.sh       # Bash deploy script
 ├── healthcheck.ps1          # PowerShell health check
 ├── healthcheck.sh           # Bash health check
 ├── check_status.sh          # Status check script
-├── README.md                # Main documentation
-├── DEPLOY_GUIDE.md          # Hướng dẫn deploy đầy đủ step-by-step
-├── DEPLOY_WEB_UI.md         # Hướng dẫn deploy qua Teleport Web UI
-├── DEPLOY_STEPS.md          # Chi tiết hướng dẫn deploy (CLI)
-├── TELEPORT_SETUP.md        # Teleport CLI setup guide
-├── TROUBLESHOOTING.md       # Troubleshooting guide
-└── SECURITY.md              # Security best practices
+└── README.md                # This file
 ```
 
-## Lệnh PowerShell Chính Xác (Copy-Paste)
+## Security
+
+**QUAN TRỌNG:** Không commit API keys hoặc secrets vào Git repository.
+
+### Best Practices
+
+- Sử dụng `.env` file (đã gitignore)
+- Sử dụng environment variables
+- Sử dụng secret management tools cho production (Vault, AWS Secrets Manager)
+- Không hardcode API keys trong code
+- Không commit .env file
+- Không chia sẻ API keys qua chat/email
+
+### Tạo file .env
+
+```bash
+cp env.template .env
+nano .env  # Thêm: OPENAI_API_KEY=sk-your-actual-key-here
+```
+
+## Lệnh PowerShell
 
 ```powershell
-# 1. Build image
+# Build image
 docker-compose build
 
-# 2. Chạy container (detached)
+# Chạy container
 docker-compose up -d
 
-# 3. Kiểm tra container status
+# Kiểm tra status
 docker ps --filter "name=mlflow-gateway"
 
-# 4. Xem logs
+# Xem logs
 docker-compose logs -f mlflow-gateway
 
-# 5. Chạy healthcheck
+# Health check
 .\healthcheck.ps1
 
-# 6. Test curl thủ công
+# Test API
 $body = '{"messages":[{"role":"user","content":"test"}]}'
 Invoke-RestMethod -Uri "http://localhost:5000/gateway/chat/invocations" -Method Post -Body $body -ContentType "application/json"
 
-# 7. Dừng container
+# Dừng container
 docker-compose down
-
-# 8. Xóa image và container
-docker-compose down --rmi all
 ```
 
 ## Acceptance Criteria
 
-- ✅ `docker ps` hiển thị container `mlflow-gateway` đang chạy
-- ✅ `curl` test trả về JSON hợp lệ từ LLM provider proxy
-- ✅ Healthcheck script trả về exit code 0
+- Container `mlflow-gateway` đang chạy với status "Up"
+- Health endpoint trả về `{"status":"OK"}`
+- API endpoint trả về JSON hợp lệ từ LLM provider
+- Logs không có errors về "Environment variable not set"
 
-## Troubleshooting
+## Service URLs
 
-- **Container không start**: Kiểm tra `.env` file có đúng format không
-- **Connection refused**: Đảm bảo port 5000 không bị chiếm bởi service khác
-- **API key invalid**: Verify API key trong `.env` file
-- **Healthcheck fails**: Đợi container khởi động hoàn toàn (30-40 giây)
-
+- Service: `http://10.3.49.202:5000`
+- Health: `http://10.3.49.202:5000/health`
+- API: `http://10.3.49.202:5000/gateway/chat/invocations`
