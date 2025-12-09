@@ -32,14 +32,37 @@ else
     echo "⚠ check_api_key.sh not found, skipping API key check"
 fi
 
-# Check health
+# Check health with retries
 echo ""
 echo "[1/4] Health Check"
-HEALTH=$(curl -s "${GATEWAY_URL}/health" || echo "")
-if echo "$HEALTH" | grep -q "OK"; then
+HEALTH_OK=false
+for i in {1..3}; do
+    HEALTH=$(curl -s "${GATEWAY_URL}/health" || echo "")
+    if echo "$HEALTH" | grep -q "OK"; then
+        HEALTH_OK=true
+        break
+    fi
+    if [ $i -lt 3 ]; then
+        echo "  Retrying health check... ($i/3)"
+        sleep 5
+    fi
+done
+
+if [ "$HEALTH_OK" = true ]; then
     echo "✓ Gateway is healthy"
 else
     echo "✗ Gateway health check failed"
+    echo ""
+    echo "Checking container status..."
+    docker ps --filter "name=mlflow-gateway" 2>/dev/null || true
+    echo ""
+    echo "Recent logs:"
+    docker compose logs --tail=20 mlflow-gateway 2>/dev/null || true
+    echo ""
+    echo "Please check:"
+    echo "  1. Container is running: docker ps"
+    echo "  2. Container logs: docker compose logs mlflow-gateway"
+    echo "  3. API key is valid: ./check_api_key.sh"
     exit 1
 fi
 

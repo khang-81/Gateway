@@ -57,15 +57,34 @@ docker compose build --no-cache
 OPENAI_API_KEY="$OPENAI_API_KEY" docker compose up -d
 
 echo ""
-echo "Waiting for container to start..."
-sleep 10
+echo "Waiting for container to start (60 seconds)..."
+sleep 60
 
-# Check health
-if curl -s http://localhost:5000/health | grep -q "OK"; then
+# Check health with retries
+HEALTH_OK=false
+for i in {1..5}; do
+    if curl -s http://localhost:5000/health | grep -q "OK"; then
+        HEALTH_OK=true
+        break
+    fi
+    echo "  Waiting for health check... ($i/5)"
+    sleep 10
+done
+
+if [ "$HEALTH_OK" = true ]; then
     echo "✓ Container restarted successfully"
     echo "✓ Gateway is healthy"
 else
-    echo "⚠ Container started but health check failed"
-    echo "Check logs: docker compose logs mlflow-gateway"
+    echo "⚠ Health check failed after multiple attempts"
+    echo ""
+    echo "Checking container status..."
+    docker ps --filter "name=mlflow-gateway"
+    echo ""
+    echo "Recent logs:"
+    docker compose logs --tail=30 mlflow-gateway
+    echo ""
+    echo "If container is restarting, check:"
+    echo "  1. API key is valid: ./check_api_key.sh"
+    echo "  2. Container logs: docker compose logs mlflow-gateway"
 fi
 
