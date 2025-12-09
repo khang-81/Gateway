@@ -1,14 +1,9 @@
-version: '3.8'
-
 # Production Docker Compose Configuration
-# Migration notes:
-# 1. Remove .env file usage - use Docker secrets or external secret management
-# 2. Set appropriate resource limits (memory, CPU)
-# 3. Configure logging driver for centralized logging
-# 4. Add healthcheck with proper intervals
-# 5. Consider using Docker Swarm or Kubernetes for orchestration
-# 6. Enable TLS termination at reverse proxy (nginx/traefik)
-# 7. Set up monitoring (Prometheus metrics endpoint)
+# Features:
+# - Resource limits for scaling
+# - Logging driver for request/cost tracking
+# - Health checks
+# - Support for Docker Swarm/Kubernetes scaling
 
 services:
   mlflow-gateway:
@@ -18,16 +13,14 @@ services:
     container_name: mlflow-gateway-prod
     ports:
       - "5000:5000"
-    volumes:
-      - ./config.yaml:/opt/mlflow/config.yaml:ro
-    # Production: Use Docker secrets instead of .env
-    # secrets:
-    #   - openai_api_key
-    # environment:
-    #   OPENAI_API_KEY_FILE: /run/secrets/openai_api_key
-    #   # Or use external secret management (Vault, AWS Secrets Manager, etc.)
+    # Don't mount config.yaml - entrypoint will create it dynamically
+    env_file:
+      - .env
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
     restart: unless-stopped
     deploy:
+      replicas: 2  # Scale to 2 instances
       resources:
         limits:
           cpus: '2'
@@ -47,17 +40,21 @@ services:
         max-size: "10m"
         max-file: "5"
         labels: "production,mlflow-gateway"
-    # For Docker Swarm, uncomment:
-    # networks:
-    #   - mlflow-network
-    # For Kubernetes, use equivalent resource limits and secrets
+    # For Docker Swarm scaling:
+    # deploy:
+    #   replicas: 3
+    #   update_config:
+    #     parallelism: 1
+    #     delay: 10s
+    #   restart_policy:
+    #     condition: on-failure
 
-# Uncomment for Docker Swarm secrets:
+# For Docker Swarm secrets (production):
 # secrets:
 #   openai_api_key:
 #     external: true
 
-# Uncomment for custom network:
+# For custom network:
 # networks:
 #   mlflow-network:
 #     driver: overlay

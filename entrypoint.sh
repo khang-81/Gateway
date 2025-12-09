@@ -32,9 +32,11 @@ EOF
 
 echo "✓ Created config.yaml with API key"
 
-# Start MLflow Gateway
+# Start MLflow Gateway với logging enabled
+# Log requests và responses để track costs
 exec mlflow gateway start \
     --config-path /opt/mlflow/config.yaml \
     --host 0.0.0.0 \
-    --port 5000
+    --port 5000 \
+    --workers 4
 
