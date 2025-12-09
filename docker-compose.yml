@@ -10,9 +10,6 @@ services:
       - ./config.yaml:/opt/mlflow/config.yaml:ro
     env_file:
       - .env
-    environment:
-      # Pass OPENAI_API_KEY explicitly to ensure it's available
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
