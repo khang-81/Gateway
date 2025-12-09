@@ -168,6 +168,12 @@ echo "✓ All required files present"
 echo ""
 echo "[5/6] Deploying MLflow Gateway..."
 
+# Load environment variable from .env file
+if [ -f ".env" ]; then
+    export $(grep -v '^#' .env | grep OPENAI_API_KEY | xargs)
+    echo "✓ Environment variable loaded from .env"
+fi
+
 # Make deploy script executable if it exists
 if [ -f "deploy_web.sh" ]; then
     chmod +x deploy_web.sh
@@ -177,14 +183,24 @@ elif [ -f "deploy.sh" ]; then
     # Use deploy.sh but don't follow logs
     $DOCKER_COMPOSE down 2>/dev/null || true
     $DOCKER_COMPOSE build
-    $DOCKER_COMPOSE up -d
+    # Ensure OPENAI_API_KEY is available
+    if [ -n "$OPENAI_API_KEY" ]; then
+        OPENAI_API_KEY="$OPENAI_API_KEY" $DOCKER_COMPOSE up -d
+    else
+        $DOCKER_COMPOSE up -d
+    fi
     sleep 10
     docker ps --filter "name=mlflow-gateway"
 else
     # Manual deploy
     $DOCKER_COMPOSE down 2>/dev/null || true
     $DOCKER_COMPOSE build
-    $DOCKER_COMPOSE up -d
+    # Ensure OPENAI_API_KEY is available
+    if [ -n "$OPENAI_API_KEY" ]; then
+        OPENAI_API_KEY="$OPENAI_API_KEY" $DOCKER_COMPOSE up -d
+    else
+        $DOCKER_COMPOSE up -d
+    fi
     sleep 10
     docker ps --filter "name=mlflow-gateway"
 fi

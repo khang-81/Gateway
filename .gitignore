@@ -1,5 +1,7 @@
 .env
+.env.backup
 *.log
 __pycache__/
 .python-version
+docker-compose.yml.backup
 

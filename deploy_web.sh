@@ -49,13 +49,25 @@ fi
 echo "[1/4] Stopping existing containers (if any)..."
 $DOCKER_COMPOSE down 2>/dev/null || true
 
+# Load environment variable from .env file
+if [ -f ".env" ]; then
+    export $(grep -v '^#' .env | xargs)
+    echo "✓ Environment variables loaded from .env"
+fi
+
 echo ""
 echo "[2/4] Building MLflow Gateway Docker image..."
 $DOCKER_COMPOSE build
 
 echo ""
 echo "[3/4] Starting MLflow Gateway container..."
-$DOCKER_COMPOSE up -d
+# Ensure OPENAI_API_KEY is available when starting
+if [ -n "$OPENAI_API_KEY" ]; then
+    OPENAI_API_KEY="$OPENAI_API_KEY" $DOCKER_COMPOSE up -d
+else
+    echo "⚠ WARNING: OPENAI_API_KEY not found in environment"
+    $DOCKER_COMPOSE up -d
+fi
 
 echo ""
 echo "[4/4] Waiting for container to start and checking status..."

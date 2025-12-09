@@ -4,6 +4,7 @@ Môi trường dev sẵn sàng deploy cho MLflow AI Gateway trên Windows (Docke
 
 ## 🚀 Quick Deploy Options
 
+- **🚀 Quick Start**: [QUICK_START.md](QUICK_START.md) - Hướng dẫn deploy nhanh nhất
 - **📖 Hướng dẫn đầy đủ**: [DEPLOY_GUIDE.md](DEPLOY_GUIDE.md) - Step-by-step guide chi tiết
 - **Teleport Web UI** (Khuyến nghị): Deploy trực tiếp qua Web Terminal - không cần cài đặt client. Xem [DEPLOY_WEB_UI.md](DEPLOY_WEB_UI.md)
 - **Teleport CLI**: Deploy qua command line với `tsh`. Xem [DEPLOY_STEPS.md](DEPLOY_STEPS.md)
@@ -124,7 +125,7 @@ chmod +x deploy.sh healthcheck.sh
 ./healthcheck.sh
 ```
 
-Xem chi tiết: [DEPLOY_STEPS.md](DEPLOY_STEPS.md) hoặc [QUICK_DEPLOY.md](QUICK_DEPLOY.md)
+Xem chi tiết: [DEPLOY_STEPS.md](DEPLOY_STEPS.md)
 
 ## Production Hardening
 
@@ -212,13 +213,14 @@ mlflow-gateway/
 ├── teleport_deploy.sh       # Bash deploy script (Teleport CLI)
 ├── healthcheck.ps1          # PowerShell health check
 ├── healthcheck.sh           # Bash health check
-├── test_remote.ps1          # PowerShell remote test script
-├── TELEPORT_SETUP.md        # Teleport CLI setup guide
+├── check_status.sh          # Status check script
+├── README.md                # Main documentation
+├── DEPLOY_GUIDE.md          # Hướng dẫn deploy đầy đủ step-by-step
 ├── DEPLOY_WEB_UI.md         # Hướng dẫn deploy qua Teleport Web UI
 ├── DEPLOY_STEPS.md          # Chi tiết hướng dẫn deploy (CLI)
-├── QUICK_DEPLOY.md          # Hướng dẫn deploy nhanh
-├── CHANGELOG.md             # Lịch sử thay đổi
-└── README.md                # This file
+├── TELEPORT_SETUP.md        # Teleport CLI setup guide
+├── TROUBLESHOOTING.md       # Troubleshooting guide
+└── SECURITY.md              # Security best practices
 ```
 
 ## Lệnh PowerShell Chính Xác (Copy-Paste)
