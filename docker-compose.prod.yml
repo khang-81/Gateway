@@ -4,6 +4,7 @@
 # - Logging driver for request/cost tracking
 # - Health checks
 # - Support for Docker Swarm/Kubernetes scaling
+# - Load balancer (nginx) for multiple instances
 
 services:
   mlflow-gateway:
@@ -12,13 +13,14 @@ services:
       dockerfile: Dockerfile
     # Remove container_name when scaling - Docker Compose will auto-generate names
     # container_name: mlflow-gateway-prod
-    ports:
-      - "5000:5000"
+    # Don't expose ports directly when scaling - use nginx load balancer
+    expose:
+      - "5000"
     # Don't mount config.yaml - entrypoint will create it dynamically
     env_file:
       - .env
     environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
     restart: unless-stopped
     # Resource limits (works with docker compose up -d --scale)
     deploy:
@@ -41,22 +43,23 @@ services:
         max-size: "10m"
         max-file: "5"
         labels: "production,mlflow-gateway"
-    # For Docker Swarm scaling:
-    # deploy:
-    #   replicas: 3
-    #   update_config:
-    #     parallelism: 1
-    #     delay: 10s
-    #   restart_policy:
-    #     condition: on-failure
+    networks:
+      - mlflow-network
 
-# For Docker Swarm secrets (production):
-# secrets:
-#   openai_api_key:
-#     external: true
+  # Nginx load balancer for multiple gateway instances
+  nginx:
+    image: nginx:alpine
+    container_name: mlflow-gateway-nginx
+    ports:
+      - "5000:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - mlflow-gateway
+    restart: unless-stopped
+    networks:
+      - mlflow-network
 
-# For custom network:
-# networks:
-#   mlflow-network:
-#     driver: overlay
-
+networks:
+  mlflow-network:
+    driver: bridge

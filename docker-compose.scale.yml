@@ -1,0 +1,39 @@
+# Docker Compose for scaling WITHOUT load balancer
+# Use this if you want to scale but don't need load balancing
+# Each instance will be accessible on different ports
+
+services:
+  mlflow-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # Expose different ports for each instance
+    # Instance 1: 5000, Instance 2: 5001, Instance 3: 5002, etc.
+    ports:
+      - "5000-5002:5000"
+    env_file:
+      - .env
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+        labels: "production,mlflow-gateway"
+
