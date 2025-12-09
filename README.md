@@ -17,16 +17,32 @@ cp env.template .env
 nano .env  # Thêm: OPENAI_API_KEY=sk-your-actual-key-here
 ```
 
-### 2. Deploy
+**Quan trọng:** Đảm bảo API key là key thực tế, không phải placeholder!
+
+### 2. Kiểm tra API Key
+
+```bash
+chmod +x check_api_key.sh
+./check_api_key.sh
+```
+
+### 3. Deploy
 
 ```bash
 docker compose up -d
 ```
 
-### 3. Kiểm tra
+### 4. Kiểm tra
 
 ```bash
 curl http://localhost:5000/health
+```
+
+### Fix Issues Tự Động
+
+```bash
+chmod +x fix_and_test.sh
+./fix_and_test.sh
 ```
 
 ## Yêu Cầu 1: Deploy và Mở Rộng
@@ -38,6 +54,8 @@ docker compose up -d
 ```
 
 ### Production (Scalable)
+
+**Lưu ý:** Khi scale, không dùng `container_name` (Docker Compose sẽ tự tạo tên)
 
 ```bash
 # Scale với docker-compose.prod.yml
@@ -51,42 +69,42 @@ docker compose -f docker-compose.prod.yml up -d --scale mlflow-gateway=3
 - Auto-restart on failure
 - Logging với rotation
 
-**Cấu hình scaling:**
-- Chỉnh sửa `docker-compose.prod.yml`:
-  ```yaml
-  deploy:
-    replicas: 3  # Số instances
-  ```
+**Fix lỗi scaling:**
+Nếu gặp lỗi "container_name must be unique", đảm bảo `container_name` đã được comment trong `docker-compose.prod.yml`
 
-## Yêu Cầu 2: Test và Đánh Giá API Gateway
+## Yêu Cầu 2: Đánh Giá API Gateway
 
-### Chạy Test Suite
+### Chạy Evaluation
 
 **Python (Khuyến nghị):**
 ```bash
-python3 test_api.py
+python3 evaluate_gateway.py
 ```
 
-**Bash:**
+**Bash Script:**
 ```bash
-chmod +x test_api.sh
-./test_api.sh
+chmod +x evaluate.sh
+./evaluate.sh
 ```
 
-**Test Runner:**
+**Với custom URL:**
 ```bash
-./run_tests.sh
+GATEWAY_URL=http://10.3.49.202:5000 python3 evaluate_gateway.py
 ```
 
-### Test Cases
+**Với test cases từ file:**
+```bash
+python3 evaluate_gateway.py --test-file test_cases.json --output results.json
+```
 
-Test suite bao gồm:
-- Health check endpoint
-- Simple chat request
-- Multi-turn conversation
-- Complex requests với parameters
-- Token usage extraction
-- Cost calculation
+### Evaluation Features
+
+- Health check tự động
+- Gửi requests thực tế đến gateway
+- Track token usage từ responses
+- Tính toán costs tự động
+- Export results ra JSON file
+- Support custom test cases
 
 ### Test Thủ Công
 
@@ -113,7 +131,7 @@ curl -X POST http://localhost:5000/gateway/chat/invocations \
   }'
 ```
 
-## Yêu Cầu 3: Logging và Cost Tracking
+## Yêu Cầu 3: Logging và Phân Tích Chi Phí
 
 ### Logging Configuration
 
@@ -121,7 +139,7 @@ Gateway đã được cấu hình để log requests và responses:
 - Logging driver: json-file
 - Max log size: 10MB per file
 - Max log files: 3 (dev) / 5 (production)
-- Logs chứa token usage information
+- Logs chứa token usage information từ responses
 
 ### Xem Logs
 
@@ -136,21 +154,21 @@ docker compose logs --tail=100 mlflow-gateway
 docker compose logs mlflow-gateway > gateway.log
 ```
 
-### Track Costs
+### Phân Tích Chi Phí
 
-**Từ Docker logs:**
+**Từ Docker logs (Khuyến nghị):**
 ```bash
-python3 track_costs.py --container mlflow-gateway
+python3 analyze_costs.py --container mlflow-gateway
 ```
 
 **Với model cụ thể:**
 ```bash
-python3 track_costs.py --container mlflow-gateway --model gpt-4
+python3 analyze_costs.py --container mlflow-gateway --model gpt-4
 ```
 
-**Từ log file:**
+**Từ response file (JSON):**
 ```bash
-python3 track_costs.py --log-file gateway.log
+python3 analyze_costs.py --response-file results.json
 ```
 
 **Output bao gồm:**
@@ -158,7 +176,7 @@ python3 track_costs.py --log-file gateway.log
 - Tổng tokens (prompt + completion)
 - Tổng chi phí
 - Chi phí trung bình mỗi request
-- Per-request breakdown (nếu <= 10 requests)
+- Per-request breakdown (nếu <= 20 requests)
 
 ### Supported Models và Pricing
 
@@ -188,11 +206,11 @@ chmod +x setup_and_deploy.sh
 ./setup_and_deploy.sh
 ```
 
-### Bước 3: Test
+### Bước 3: Evaluate và Analyze
 
 ```bash
-python3 test_api.py
-python3 track_costs.py --container mlflow-gateway
+python3 evaluate_gateway.py
+python3 analyze_costs.py --container mlflow-gateway
 ```
 
 ## Quản Lý Service
@@ -216,10 +234,61 @@ docker compose up -d
 
 ## Troubleshooting
 
+### API Key Invalid (401 Error)
+
+**Triệu chứng:** `Incorrect API key provided: your_ope************here`
+
+**Giải pháp:**
+```bash
+# Kiểm tra API key
+./check_api_key.sh
+
+# Hoặc kiểm tra thủ công
+cat .env | grep OPENAI_API_KEY
+
+# Nếu vẫn là placeholder, cập nhật:
+nano .env
+# Thay: OPENAI_API_KEY=sk-your-actual-key-here
+
+# Restart container
+export OPENAI_API_KEY=$(grep "^OPENAI_API_KEY=" .env | cut -d'=' -f2- | xargs)
+docker compose down
+docker compose build --no-cache
+OPENAI_API_KEY="$OPENAI_API_KEY" docker compose up -d
+```
+
+### Scaling Error: container_name must be unique
+
+**Triệu chứng:** `can't set container_name and mlflow-gateway as container name must be unique`
+
+**Giải pháp:**
+```bash
+# Comment out container_name trong docker-compose.prod.yml
+# Hoặc sử dụng docker-compose.yml thay vì docker-compose.prod.yml
+docker compose up -d --scale mlflow-gateway=3
+```
+
+### Test Script: jq command not found
+
+**Giải pháp:**
+```bash
+# Script đã được fix để không cần jq
+# Nếu vẫn lỗi, cài jq hoặc dùng Python script
+sudo apt-get install -y jq
+# Hoặc
+python3 test_api.py
+```
+
+### Permission denied cho scripts
+
+```bash
+chmod +x *.sh
+```
+
 ### Environment variable not set
 
 ```bash
-export OPENAI_API_KEY=$(grep "^OPENAI_API_KEY=" .env | cut -d'=' -f2)
+export OPENAI_API_KEY=$(grep "^OPENAI_API_KEY=" .env | cut -d'=' -f2- | xargs)
 docker compose down
 docker compose build --no-cache
 OPENAI_API_KEY="$OPENAI_API_KEY" docker compose up -d
@@ -240,6 +309,18 @@ sudo lsof -i :5000
 docker compose down
 ```
 
+### Cost Analysis: No usage data found
+
+**Giải pháp:**
+```bash
+# Usage data chỉ có khi có requests thực tế
+# Chạy evaluation để tạo requests:
+python3 evaluate_gateway.py
+
+# Sau đó analyze costs
+python3 analyze_costs.py --container mlflow-gateway
+```
+
 ## Cấu Trúc Project
 
 ```
@@ -251,10 +332,9 @@ mlflow-gateway/
 ├── env.template             # Environment variables template
 ├── .env                     # Actual environment variables (gitignored)
 ├── entrypoint.sh            # Container entrypoint script
-├── test_api.py              # Python test script
-├── test_api.sh              # Bash test script
-├── track_costs.py           # Cost tracking script
-├── run_tests.sh             # Test runner
+├── evaluate_gateway.py      # Python evaluation script (production-ready)
+├── analyze_costs.py         # Cost analysis script (production-ready)
+├── evaluate.sh               # Evaluation runner script
 ├── setup_and_deploy.sh      # Interactive deploy script
 └── README.md                # This file
 ```

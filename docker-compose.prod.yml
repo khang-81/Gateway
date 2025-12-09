@@ -10,7 +10,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: mlflow-gateway-prod
+    # Remove container_name when scaling - Docker Compose will auto-generate names
+    # container_name: mlflow-gateway-prod
     ports:
       - "5000:5000"
     # Don't mount config.yaml - entrypoint will create it dynamically
@@ -19,8 +20,8 @@ services:
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     restart: unless-stopped
+    # Resource limits (works with docker compose up -d --scale)
     deploy:
-      replicas: 2  # Scale to 2 instances
       resources:
         limits:
           cpus: '2'
