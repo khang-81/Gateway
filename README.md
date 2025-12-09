@@ -19,30 +19,68 @@ nano .env  # Thêm: OPENAI_API_KEY=sk-your-actual-key-here
 
 **Quan trọng:** Đảm bảo API key là key thực tế, không phải placeholder!
 
-### 2. Kiểm tra API Key
+### 2. Deploy
 
 ```bash
-chmod +x check_api_key.sh
-./check_api_key.sh
+# Cấp quyền cho scripts
+chmod +x *.sh
+
+# Fix environment và deploy
+./fix_env_and_restart.sh
 ```
 
-### 3. Deploy
+Script này sẽ:
+- Kiểm tra API key
+- Stop container cũ
+- Rebuild và start container với API key đúng
+- Đợi và verify health check
+
+### 3. Kiểm tra
 
 ```bash
-docker compose up -d
-```
+# Quick check
+./check_gateway.sh
 
-### 4. Kiểm tra
-
-```bash
+# Hoặc thủ công
 curl http://localhost:5000/health
+docker ps --filter "name=mlflow-gateway"
 ```
 
-### Fix Issues Tự Động
+### 4. Verify Gateway (Không cần API Quota)
 
 ```bash
-chmod +x fix_and_test.sh
-./fix_and_test.sh
+# Verify gateway structure và configuration
+python3 verify_gateway.py
+
+# Hoặc bash script
+chmod +x verify_gateway.sh
+./verify_gateway.sh
+```
+
+Script này verify gateway mà không cần OpenAI API quota:
+- Health endpoint
+- Endpoints structure
+- Configuration
+- Container status
+- Logs
+
+### 5. Đánh Giá Gateway (Cần API Quota)
+
+```bash
+# Chạy evaluation (cần OpenAI API quota)
+./evaluate.sh
+
+# Hoặc trực tiếp
+python3 evaluate_gateway.py
+```
+
+**Lưu ý:** Nếu gặp lỗi quota, gateway vẫn hoạt động đúng. Xem [QUOTA_ISSUE.md](QUOTA_ISSUE.md)
+
+### 6. Phân Tích Chi Phí
+
+```bash
+# Sau khi có requests thành công
+python3 analyze_costs.py --container mlflow-gateway
 ```
 
 ## Yêu Cầu 1: Deploy và Mở Rộng

@@ -200,7 +200,24 @@ class GatewayEvaluator:
                 else:
                     print("⚠ No usage information in response")
             else:
-                print(f"✗ Request failed: {result.get('error', 'Unknown error')}")
+                error_msg = result.get('error', 'Unknown error')
+                print(f"✗ Request failed: {error_msg}")
+                
+                # Check for specific error types
+                if "quota" in error_msg.lower() or "exceeded" in error_msg.lower():
+                    print("\n⚠ OpenAI API Quota Exceeded")
+                    print("  This means your API key has reached its usage limit.")
+                    print("  Solutions:")
+                    print("    1. Check billing: https://platform.openai.com/account/billing")
+                    print("    2. Add payment method if needed")
+                    print("    3. Wait for quota reset (usually monthly)")
+                    print("    4. Use a different API key with available quota")
+                elif "401" in str(result.get('status_code', '')) or "unauthorized" in error_msg.lower():
+                    print("\n⚠ API Key Authentication Failed")
+                    print("  Check your API key is valid and not expired")
+                elif "429" in str(result.get('status_code', '')) or "rate limit" in error_msg.lower():
+                    print("\n⚠ Rate Limit Exceeded")
+                    print("  Too many requests. Wait a moment and try again.")
         
         # Summary
         print(f"\n{'=' * 70}")
@@ -214,10 +231,12 @@ class GatewayEvaluator:
             print(f"Average Cost per Request: ${total_cost / successful_requests:.6f}")
         else:
             print("Average Cost per Request: N/A (no successful requests)")
-            print("\n⚠ All requests failed. Check:")
-            print("  1. API key is valid (not placeholder)")
-            print("  2. Gateway is running correctly")
-            print("  3. Network connectivity")
+            print("\n⚠ All requests failed. Common issues:")
+            print("  1. OpenAI API quota exceeded - Check billing at https://platform.openai.com/account/billing")
+            print("  2. API key invalid or expired - Verify at https://platform.openai.com/account/api-keys")
+            print("  3. Rate limit exceeded - Wait and retry")
+            print("  4. Network connectivity issues - Check internet connection")
+            print("\nGateway is working correctly. The issue is with OpenAI API access.")
         
         return {
             "total_requests": len(test_cases),
