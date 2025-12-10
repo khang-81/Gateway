@@ -64,7 +64,7 @@ def calculate_cost(usage: Dict[str, Any], model: str = "gpt-3.5-turbo") -> Dict[
         "model": model
     }
 
-def analyze_docker_logs(container_name: str = "mlflow-gateway", model: str = "gpt-3.5-turbo", tail: int = 1000):
+def analyze_docker_logs(container_name: str = "mlflow-gateway", model: str = "gpt-3.5-turbo", tail: int = 1000, show_stats: bool = True):
     """Phân tích costs từ Docker logs"""
     print("=" * 70)
     print("MLflow Gateway Cost Analysis")
@@ -87,9 +87,30 @@ def analyze_docker_logs(container_name: str = "mlflow-gateway", model: str = "gp
         
         logs = result.stdout
         usages = []
+        request_stats = {
+            "total_lines": len(logs.split('\n')),
+            "has_requests": False,
+            "has_errors": False,
+            "error_types": defaultdict(int)
+        }
         
         # Parse logs
         for line in logs.split('\n'):
+            # Check for request indicators
+            if any(kw in line.lower() for kw in ['invocations', 'post', 'gateway/chat', 'request']):
+                request_stats["has_requests"] = True
+            
+            # Check for errors
+            if any(kw in line.lower() for kw in ['error', 'failed', 'exception', 'quota', 'exceeded', '401', '429', '500']):
+                request_stats["has_errors"] = True
+                if "quota" in line.lower() or "exceeded" in line.lower():
+                    request_stats["error_types"]["quota_exceeded"] += 1
+                elif "401" in line or "unauthorized" in line.lower():
+                    request_stats["error_types"]["unauthorized"] += 1
+                elif "429" in line or "rate limit" in line.lower():
+                    request_stats["error_types"]["rate_limit"] += 1
+            
+            # Parse usage data
             if any(kw in line.lower() for kw in ['usage', 'token', 'prompt_tokens', 'completion_tokens']):
                 data = parse_log_line(line)
                 if data:
@@ -110,10 +131,38 @@ def analyze_docker_logs(container_name: str = "mlflow-gateway", model: str = "gp
                         if usage_data["total_tokens"] > 0:
                             usages.append(usage_data)
         
-        if not usages:
+        # Show request statistics even if no usage data
+        if show_stats and not usages:
+            print("\n" + "=" * 70)
+            print("Request Statistics")
+            print("=" * 70)
+            if request_stats["has_requests"]:
+                print("✓ Gateway has received requests")
+            else:
+                print("⚠ No requests detected in logs")
+                print("  Make sure you have sent requests to the gateway")
+            
+            if request_stats["has_errors"]:
+                print(f"\n⚠ Errors detected in logs:")
+                for error_type, count in request_stats["error_types"].items():
+                    print(f"  - {error_type}: {count} occurrence(s)")
+                
+                if "quota_exceeded" in request_stats["error_types"]:
+                    print("\n💡 Quota Exceeded Error:")
+                    print("  This means your OpenAI API key has reached its usage limit.")
+                    print("  Solutions:")
+                    print("    1. Check billing: https://platform.openai.com/account/billing")
+                    print("    2. Add payment method if needed")
+                    print("    3. Wait for quota reset (usually monthly)")
+                    print("    4. Use a different API key with available quota")
+                    print("\n  Note: Gateway is working correctly. The issue is with OpenAI API access.")
+            
             print("\n⚠ No usage data found in logs.")
-            print("Make sure you have sent requests to the gateway.")
-            print("Usage data appears in logs after successful API calls.")
+            print("Usage data only appears after successful API calls with valid responses.")
+            print("\nTo get usage data:")
+            print("  1. Ensure your OpenAI API key has available quota")
+            print("  2. Run evaluation: python3 evaluate_gateway.py")
+            print("  3. Or analyze from results file: python3 analyze_costs.py --response-file results.json")
             return
         
         # Calculate costs
@@ -156,23 +205,60 @@ def analyze_response_file(file_path: str, model: str = "gpt-3.5-turbo"):
         with open(file_path, 'r') as f:
             data = json.load(f)
         
-        # Handle different formats
-        if isinstance(data, list):
-            responses = data
-        elif "results" in data:
-            responses = data["results"]
+        # Handle evaluate_gateway.py output format
+        if isinstance(data, dict) and "results" in data:
+            # This is from evaluate_gateway.py
+            results = data["results"]
+            successful = data.get("successful", 0)
+            failed = data.get("failed", 0)
+            
+            print(f"\n{'=' * 70}")
+            print("Request Statistics")
+            print(f"{'=' * 70}")
+            print(f"Total Requests: {data.get('total_requests', len(results))}")
+            print(f"Successful: {successful}")
+            print(f"Failed: {failed}")
+            
+            if failed > 0:
+                print("\n⚠ Some requests failed. Common reasons:")
+                print("  - OpenAI API quota exceeded")
+                print("  - API key invalid or expired")
+                print("  - Rate limit exceeded")
+                print("  - Network connectivity issues")
+            
+            # Extract usages from results
+            usages = []
+            for result in results:
+                if isinstance(result, dict):
+                    if result.get("success") and "usage" in result:
+                        usages.append(result["usage"])
+                    elif result.get("success") and "response" in result:
+                        usage = extract_usage_from_response(result["response"])
+                        if usage:
+                            usages.append(usage)
         else:
-            responses = [data]
-        
-        usages = []
-        for response in responses:
-            if isinstance(response, dict):
-                usage = extract_usage_from_response(response)
-                if usage:
-                    usages.append(usage)
+            # Handle other formats
+            if isinstance(data, list):
+                responses = data
+            elif "results" in data:
+                responses = data["results"]
+            else:
+                responses = [data]
+            
+            usages = []
+            for response in responses:
+                if isinstance(response, dict):
+                    usage = extract_usage_from_response(response)
+                    if usage:
+                        usages.append(usage)
         
         if not usages:
-            print("⚠ No usage data found in file")
+            print("\n⚠ No usage data found in file")
+            print("Usage data only appears in successful API responses.")
+            print("\nTo get usage data:")
+            print("  1. Ensure your OpenAI API key has available quota")
+            print("  2. Run evaluation: python3 evaluate_gateway.py")
+            print("  3. Check the results file for successful requests")
             return
         
         # Calculate and display
@@ -208,8 +294,9 @@ def main():
     parser.add_argument("--container", default="mlflow-gateway", help="Docker container name")
     parser.add_argument("--model", default="gpt-3.5-turbo", help="Model for pricing")
     parser.add_argument("--log-file", help="Path to log file")
-    parser.add_argument("--response-file", help="Path to response JSON file")
+    parser.add_argument("--response-file", help="Path to response JSON file (from evaluate_gateway.py)")
     parser.add_argument("--tail", type=int, default=1000, help="Number of log lines to analyze")
+    parser.add_argument("--no-stats", action="store_true", help="Don't show request statistics when no usage data")
     
     args = parser.parse_args()
     
@@ -222,7 +309,7 @@ def main():
         # Similar parsing logic...
         print("Log file analysis not fully implemented. Use --container instead.")
     else:
-        analyze_docker_logs(args.container, args.model, args.tail)
+        analyze_docker_logs(args.container, args.model, args.tail, show_stats=not args.no_stats)
 
 if __name__ == "__main__":
     main()

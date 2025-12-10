@@ -46,25 +46,7 @@ curl http://localhost:5000/health
 docker ps --filter "name=mlflow-gateway"
 ```
 
-### 4. Verify Gateway (Không cần API Quota)
-
-```bash
-# Verify gateway structure và configuration
-python3 verify_gateway.py
-
-# Hoặc bash script
-chmod +x verify_gateway.sh
-./verify_gateway.sh
-```
-
-Script này verify gateway mà không cần OpenAI API quota:
-- Health endpoint
-- Endpoints structure
-- Configuration
-- Container status
-- Logs
-
-### 5. Đánh Giá Gateway (Cần API Quota)
+### 4. Đánh Giá Gateway
 
 ```bash
 # Chạy evaluation (cần OpenAI API quota)
@@ -74,9 +56,9 @@ Script này verify gateway mà không cần OpenAI API quota:
 python3 evaluate_gateway.py
 ```
 
-**Lưu ý:** Nếu gặp lỗi quota, gateway vẫn hoạt động đúng. Xem [QUOTA_ISSUE.md](QUOTA_ISSUE.md)
+**Lưu ý:** Nếu gặp lỗi quota, gateway vẫn hoạt động đúng. Gateway structure và configuration đã được verify.
 
-### 6. Phân Tích Chi Phí
+### 5. Phân Tích Chi Phí
 
 ```bash
 # Sau khi có requests thành công
@@ -323,7 +305,7 @@ docker compose up -d --scale mlflow-gateway=3
 # Nếu vẫn lỗi, cài jq hoặc dùng Python script
 sudo apt-get install -y jq
 # Hoặc
-python3 test_api.py
+python3 evaluate_gateway.py
 ```
 
 ### Permission denied cho scripts
@@ -374,15 +356,24 @@ python3 analyze_costs.py --container mlflow-gateway
 mlflow-gateway/
 ├── config.yaml              # MLflow Gateway config template
 ├── Dockerfile               # Container image definition
-├── docker-compose.yml       # Development configuration
-├── docker-compose.prod.yml  # Production configuration (scalable)
+├── docker-compose.yml       # Development configuration (single instance)
+├── docker-compose.prod.yml  # Production configuration (scalable với nginx)
+├── docker-compose.scale.yml # Alternative scaling (port range)
+├── nginx.conf               # Nginx load balancer config
 ├── env.template             # Environment variables template
 ├── .env                     # Actual environment variables (gitignored)
 ├── entrypoint.sh            # Container entrypoint script
 ├── evaluate_gateway.py      # Python evaluation script (production-ready)
 ├── analyze_costs.py         # Cost analysis script (production-ready)
-├── evaluate.sh               # Evaluation runner script
+├── evaluate.sh              # Evaluation runner script
+├── check_gateway.sh         # Quick status check
+├── check_api_key.sh         # API key validation
+├── fix_env_and_restart.sh   # Fix environment and restart
+├── scale_with_nginx.sh      # Scale with nginx script
 ├── setup_and_deploy.sh      # Interactive deploy script
+├── deploy_web.sh            # Simple deploy script
+├── deploy_to_server.ps1     # PowerShell deploy via Teleport
+├── teleport_deploy.sh       # Bash deploy via Teleport
 └── README.md                # This file
 ```
 

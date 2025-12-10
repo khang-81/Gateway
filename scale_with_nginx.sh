@@ -111,3 +111,5 @@ echo "  curl -X POST http://localhost:5000/gateway/chat/invocations \\"
 echo "    -H 'Content-Type: application/json' \\"
 echo "    -d '{\"messages\":[{\"role\":\"user\",\"content\":\"Hello\"}]}'"
 
+
+

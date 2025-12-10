@@ -277,14 +277,16 @@ def main():
     try:
         summary = evaluator.evaluate(test_cases)
         
-        # Save results if output file specified
-        if args.output:
-            try:
-                with open(args.output, 'w') as f:
-                    json.dump(summary, f, indent=2)
-                print(f"\n✓ Results saved to {args.output}")
-            except Exception as e:
-                print(f"✗ Error saving results: {e}")
+        # Save results if output file specified (or auto-save if not specified)
+        output_file = args.output or "gateway_results.json"
+        try:
+            with open(output_file, 'w') as f:
+                json.dump(summary, f, indent=2)
+            print(f"\n✓ Results saved to {output_file}")
+            print(f"  You can analyze costs from this file:")
+            print(f"  python3 analyze_costs.py --response-file {output_file}")
+        except Exception as e:
+            print(f"✗ Error saving results: {e}")
     except KeyboardInterrupt:
         print("\n\n⚠ Evaluation interrupted by user")
         sys.exit(1)
