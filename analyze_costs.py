@@ -96,9 +96,34 @@ def analyze_docker_logs(container_name: str = "mlflow-gateway", model: str = "gp
         
         # Parse logs
         for line in logs.split('\n'):
-            # Check for request indicators
-            if any(kw in line.lower() for kw in ['invocations', 'post', 'gateway/chat', 'request']):
+            # Check for access log format (gunicorn/nginx)
+            # Gunicorn access log: IP - - [timestamp] "METHOD /path HTTP/1.1" status bytes
+            # Nginx access log: IP - user [timestamp] "request" status bytes
+            if re.search(r'^\d+\.\d+\.\d+\.\d+.*"([A-Z]+|GET|POST|PUT|DELETE).*"', line):
                 request_stats["has_requests"] = True
+                # Try to extract request details
+                method_match = re.search(r'"([A-Z]+)\s+([^\s]+)', line)
+                status_match = re.search(r'"\s+(\d{3})\s+', line)
+                if method_match:
+                    method = method_match.group(1)
+                    path = method_match.group(2)
+                    if '/gateway/chat/invocations' in path or '/invocations' in path:
+                        request_stats["api_requests"] = request_stats.get("api_requests", 0) + 1
+                        if status_match:
+                            status = int(status_match.group(1))
+                            if status == 200:
+                                request_stats["successful_requests"] = request_stats.get("successful_requests", 0) + 1
+                            elif status >= 400:
+                                request_stats["failed_requests"] = request_stats.get("failed_requests", 0) + 1
+            
+            # Check for request indicators (MLflow Gateway may not log these, but check anyway)
+            elif any(kw in line.lower() for kw in ['invocations', 'post', 'gateway/chat', 'request', 'http', 'uvicorn', 'gunicorn']):
+                # More lenient check - uvicorn/gunicorn logs indicate server is handling requests
+                if 'uvicorn' in line.lower() or 'gunicorn' in line.lower():
+                    # Server logs indicate it's running, but not necessarily requests
+                    pass
+                else:
+                    request_stats["has_requests"] = True
             
             # Check for errors
             if any(kw in line.lower() for kw in ['error', 'failed', 'exception', 'quota', 'exceeded', '401', '429', '500']):
@@ -137,10 +162,17 @@ def analyze_docker_logs(container_name: str = "mlflow-gateway", model: str = "gp
             print("Request Statistics")
             print("=" * 70)
             if request_stats["has_requests"]:
-                print("✓ Gateway has received requests")
+                print("✓ Gateway has received requests (detected in logs)")
+                if "api_requests" in request_stats:
+                    print(f"  API Requests: {request_stats['api_requests']}")
+                    if "successful_requests" in request_stats:
+                        print(f"  Successful: {request_stats['successful_requests']}")
+                    if "failed_requests" in request_stats:
+                        print(f"  Failed: {request_stats['failed_requests']}")
             else:
                 print("⚠ No requests detected in logs")
-                print("  Make sure you have sent requests to the gateway")
+                print("  Note: If access logging is enabled, requests should appear here")
+                print("  If you ran evaluate_gateway.py, check for gateway_results.json file")
             
             if request_stats["has_errors"]:
                 print(f"\n⚠ Errors detected in logs:")
@@ -158,11 +190,31 @@ def analyze_docker_logs(container_name: str = "mlflow-gateway", model: str = "gp
                     print("\n  Note: Gateway is working correctly. The issue is with OpenAI API access.")
             
             print("\n⚠ No usage data found in logs.")
+            print("Note: MLflow Gateway doesn't log request details to stdout.")
             print("Usage data only appears after successful API calls with valid responses.")
-            print("\nTo get usage data:")
-            print("  1. Ensure your OpenAI API key has available quota")
-            print("  2. Run evaluation: python3 evaluate_gateway.py")
-            print("  3. Or analyze from results file: python3 analyze_costs.py --response-file results.json")
+            
+            # Auto-detect and suggest results file
+            import os
+            results_files = ["gateway_results.json", "results.json"]
+            found_file = None
+            for rf in results_files:
+                if os.path.exists(rf):
+                    found_file = rf
+                    break
+            
+            if found_file:
+                print(f"\n💡 Found results file: {found_file}")
+                print(f"  Analyzing from results file instead...")
+                print("")
+                # Auto-analyze from results file
+                analyze_response_file(found_file, model)
+                return
+            else:
+                print("\nTo get usage data:")
+                print("  1. Ensure your OpenAI API key has available quota")
+                print("  2. Run evaluation: python3 evaluate_gateway.py")
+                print("  3. Then analyze from results file:")
+                print("     python3 analyze_costs.py --response-file gateway_results.json")
             return
         
         # Calculate costs

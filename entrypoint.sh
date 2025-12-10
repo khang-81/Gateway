@@ -34,6 +34,8 @@ echo "✓ Created config.yaml with API key"
 
 # Start MLflow Gateway với logging enabled
 # Log requests và responses để track costs
+# Note: MLflow Gateway uses gunicorn internally, but doesn't expose all gunicorn options
+# For request logging, use nginx access logs (if using nginx) or analyze from results file
 exec mlflow gateway start \
     --config-path /opt/mlflow/config.yaml \
     --host 0.0.0.0 \

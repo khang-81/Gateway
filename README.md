@@ -61,9 +61,18 @@ python3 evaluate_gateway.py
 ### 5. Phân Tích Chi Phí
 
 ```bash
-# Sau khi có requests thành công
+# Từ results file (Khuyến nghị - sau khi chạy evaluate_gateway.py)
+python3 analyze_costs.py --response-file gateway_results.json
+
+# Tự động detect results file (nếu không có data trong logs)
 python3 analyze_costs.py --container mlflow-gateway
+# Script sẽ tự động tìm và analyze từ gateway_results.json nếu không có data trong logs
+
+# Với model cụ thể
+python3 analyze_costs.py --response-file gateway_results.json --model gpt-4
 ```
+
+**Lưu ý:** MLflow Gateway không log request details vào stdout, nên analyze từ results file là cách tốt nhất.
 
 ## Yêu Cầu 1: Deploy và Mở Rộng
 
@@ -161,6 +170,11 @@ Gateway đã được cấu hình để log requests và responses:
 - Max log files: 3 (dev) / 5 (production)
 - Logs chứa token usage information từ responses
 
+**Lưu ý về Request Logging:**
+- MLflow Gateway không log request details trực tiếp vào stdout/stderr
+- Nếu sử dụng nginx (production), nginx access logs sẽ capture request details
+- Cách tốt nhất để track requests: sử dụng `evaluate_gateway.py` và analyze từ results file
+
 ### Xem Logs
 
 ```bash
@@ -172,24 +186,30 @@ docker compose logs --tail=100 mlflow-gateway
 
 # Export logs
 docker compose logs mlflow-gateway > gateway.log
+
+# Nginx access logs (nếu dùng nginx)
+docker logs mlflow-gateway-nginx
 ```
 
 ### Phân Tích Chi Phí
 
-**Từ Docker logs (Khuyến nghị):**
+**Từ results file (Khuyến nghị - sau khi chạy evaluate_gateway.py):**
+```bash
+python3 analyze_costs.py --response-file gateway_results.json
+```
+
+**Tự động detect results file (nếu không có data trong logs):**
 ```bash
 python3 analyze_costs.py --container mlflow-gateway
+# Script sẽ tự động tìm và analyze từ gateway_results.json nếu không có data trong logs
 ```
 
 **Với model cụ thể:**
 ```bash
-python3 analyze_costs.py --container mlflow-gateway --model gpt-4
+python3 analyze_costs.py --response-file gateway_results.json --model gpt-4
 ```
 
-**Từ response file (JSON):**
-```bash
-python3 analyze_costs.py --response-file results.json
-```
+**Lưu ý:** MLflow Gateway không log request details vào stdout, nên analyze từ results file là cách tốt nhất.
 
 **Output bao gồm:**
 - Tổng số requests
@@ -297,17 +317,6 @@ docker exec mlflow-gateway env | grep OPENAI
 docker compose up -d --scale mlflow-gateway=3
 ```
 
-### Test Script: jq command not found
-
-**Giải pháp:**
-```bash
-# Script đã được fix để không cần jq
-# Nếu vẫn lỗi, cài jq hoặc dùng Python script
-sudo apt-get install -y jq
-# Hoặc
-python3 evaluate_gateway.py
-```
-
 ### Permission denied cho scripts
 
 ```bash
@@ -347,7 +356,7 @@ docker compose down
 python3 evaluate_gateway.py
 
 # Sau đó analyze costs
-python3 analyze_costs.py --container mlflow-gateway
+python3 analyze_costs.py --response-file gateway_results.json
 ```
 
 ## Cấu Trúc Project
