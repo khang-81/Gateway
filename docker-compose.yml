@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   mlflow-gateway:
     build:
@@ -6,29 +8,62 @@ services:
     container_name: mlflow-gateway
     ports:
       - "5000:5000"
-    # Don't mount config.yaml - entrypoint will create it dynamically with API key
-    # volumes:
-    #   - ./config.yaml:/opt/mlflow/config.yaml:ro
+    # Environment variables
     env_file:
       - .env
-    environment:
-      # Pass OPENAI_API_KEY from .env file
-      # Docker Compose will automatically load variables from .env file
-      # But we also explicitly pass it to ensure it's available
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-    restart: unless-stopped
+    # Volumes for persistent data and logs
+    volumes:
+      - mlflow-gateway-logs:/var/log/mlflow-gateway
+      - ./config.yaml:/app/config.yaml:ro
+    # Security
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /run
+      - /var/run
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+    # Healthcheck configuration
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:5000/health" ]
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 40s
+      retries: 5
+      start_period: 60s
+    # Logging configuration
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
-        max-file: "3"
+        max-file: "5"
+        compress: "true"
         labels: "mlflow-gateway"
+    # Restart policy
+    restart: unless-stopped
+    # Network isolation
+    networks:
+      - mlflow-network
+
+# Define volumes for persistent data
+volumes:
+  mlflow-gateway-logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./logs
+
+# Define networks for better isolation
+networks:
+  mlflow-network:
+    driver: bridge
+    internal: false
 
 # Optional: Nginx reverse proxy for dev (uncomment to use)
 #  nginx:
